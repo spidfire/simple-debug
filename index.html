@@ -1,0 +1,98 @@
+
+
+ <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+ <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+ <head>
+     <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+     <title>Document</title>
+     <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+ </head>
+ <body>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  var socket = io('http://debugger.almanapp.nl:8080/');
+  socket.on('news', function (data) {
+    var row = $("<div/>").addClass("row col-xs-12").css("border-bottom","1px solid black");
+
+    //Method    Device  Request Identifier  Post_data   Date
+    var is_post = data.request_test_type == "POST"
+        row.append($("<div/>").addClass("col-xs-1").text(data.request_test_type)) // Method
+        row.append($("<div/>").addClass("col-xs-1").text(data.identifier || "??")) // Device
+        var parts = data.request_test_checksystem.split("?")
+        var url =parts.shift()
+        var qs =parseQuery(parts.join("?"))
+        var qsout = []
+        console.log(qs)
+        for(var i in qs){
+            qsout.push(i +":" + JSON.stringify(qs[i]) )
+
+        }
+
+
+
+        row.append($("<div/>").addClass(is_post ? "col-xs-6" : "col-xs-10").html(url + "<br/>" + qsout.join("<br/>"))) // Request
+
+
+        var filtered = data
+        delete filtered.request_test_type
+        delete filtered.identifier
+        delete filtered.request_test_checksystem
+        delete filtered.uuid
+        delete filtered.asdsad
+        delete filtered.request_test_type
+
+        var dout = []
+        console.log(filtered)
+        for(var i in filtered){
+            dout.push(i +":" + JSON.stringify(filtered[i]) )
+
+        }
+        if(is_post){
+
+        row.append($("<div/>").addClass("col-xs-4").append($("<textarea/>").attr("rows","10").addClass("col-xs-12").val(dout.join("\n"))))
+        }
+
+    $("#data").prepend(row)
+
+
+  });
+
+  function parseQuery(qstr) {
+    var query = {};
+    var a = (qstr[0] === '?' ? qstr.substr(1) : qstr).split('&');
+    for (var i = 0; i < a.length; i++) {
+        var b = a[i].split('=');
+        query[decodeURIComponent(b[0])] = decodeURIComponent(b[1] || '');
+    }
+    return query;
+}
+</script>
+
+
+<div class="content">
+    <div class="row" id='header'>
+        <div>
+            <div class="col-xs-1">Method</div>
+            <div class="col-xs-1">Device</div>
+            <div class="col-xs-6">Request</div>
+            <div class="col-xs-4">Post_data</div>
+        </div>
+    </div>
+    <div class="row" id='data' >
+
+    </div>
+
+</div>
+
+ </body>
+ </html>
