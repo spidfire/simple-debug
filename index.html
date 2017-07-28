@@ -13,59 +13,116 @@
 
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <script src="js/angular.min.js"></script>
     <!-- Latest compiled and minified JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
  </head>
- <body>
+ <body ng-app="groupAdmin">
 
 <script src="/socket.io/socket.io.js"></script>
-<script>
-  var socket = io('http://debugger.almanapp.nl:8080/');
-  socket.on('news', function (data) {
-    var row = $("<div/>").addClass("row col-xs-12").css("border-bottom","1px solid black");
+  <script type="text/javascript">
 
-    //Method    Device  Request Identifier  Post_data   Date
-    var is_post = data.request_test_type == "POST"
-        row.append($("<div/>").addClass("col-xs-1").text(data.request_test_type)) // Method
-        row.append($("<div/>").addClass("col-xs-1").text(data.identifier || "??")) // Device
-        var parts = data.request_test_checksystem.split("?")
-        var url =parts.shift()
-        var qs =parseQuery(parts.join("?"))
-        var qsout = []
-        console.log(qs)
-        for(var i in qs){
-            qsout.push(i +":" + JSON.stringify(qs[i]) )
-
-        }
+        var app = angular.module('groupAdmin', []);
 
 
+var socket = io('http://debugger.almanapp.nl:8080/');
 
-        row.append($("<div/>").addClass(is_post ? "col-xs-6" : "col-xs-10").html(url + "<br/>" + qsout.join("<br/>"))) // Request
+        app.controller('SearchController', function ($scope) {
+            $scope.items = [];
+            $scope.paused = false;
+            var items = []
+            socket.on('news', function (data) {
+                var parts = data.request_test_checksystem.split("?")
+                var url =parts.shift()
+                var qs =parseQuery(parts.join("?"))
+
+                var serverparts = url.split("server")
+                var host = serverparts[0] + "server"
+                var path = serverparts[1]
+                console.log(path);
+                var filtered = angular.copy(data)
+                delete filtered.request_test_type
+                delete filtered.identifier
+                delete filtered.version
+                delete filtered.token
+                delete filtered.no_logging
+                delete filtered.request_test_checksystem
+                delete filtered.timezone
+                delete filtered.lang
+                delete filtered['os-version']
+                delete filtered.uuid
+                delete filtered.usertype
+                var poststring = [];
+                for(var i in filtered){
+                    poststring.push(i + ":" + filtered[i]);
+                }
+
+                items.push({
+                        is_post: data.request_test_type.toUpperCase() == "POST",
+                        method: data.request_test_type.toUpperCase(),
+                        identifier: data.identifier || "??",
+                        version: data.version,
+                        host: host,
+                        path: path,
+                        no_logging: data.no_logging,
+                        token: data.token,
+                        usertype: data.usertype,
+                        lang: data.lang,
+                        timezone: data.timezone,
+                        osversion: data['os-version'],
+                        refresh: data.refresh || false,
+                        full_url: data.request_test_checksystem,
+                        split_url: url,
+                        parameters: qs,
+                        uuid: data.uuid,
+                        post:poststring.join("\n")
+
+                })
+               $scope.handleQueue()
+            });
+
+                $scope.handleTogglePause = function (){
+                    $scope.paused = !$scope.paused
+
+                    $scope.handleQueue()
+
+                }
+                $scope.handleQueue = function (){
+                    if($scope.paused == false){
+
+                        $scope.safeApply(function (){
+                            while(itm = items.pop()){
+                                console.log("adding", itm.path)
+                                $scope.items.push(itm);
+
+                                // if($scope.items.length > 500){
+                                //     $scope.items.shift()
+                                // }
+
+                            }
 
 
-        var filtered = data
-        delete filtered.request_test_type
-        delete filtered.identifier
-        delete filtered.request_test_checksystem
-        delete filtered.uuid
-        delete filtered.asdsad
-        delete filtered.request_test_type
+                        })
+                    }
+                }
+                $scope.safeApply = function(fn) {
+                  var phase = this.$root.$$phase;
+                  if(phase == '$apply' || phase == '$digest') {
+                    if(fn && (typeof(fn) === 'function')) {
+                      fn();
+                    }
+                  } else {
+                    this.$apply(fn);
+                  }
+                };
 
-        var dout = []
-        console.log(filtered)
-        for(var i in filtered){
-            dout.push(i +":" + JSON.stringify(filtered[i]) )
-
-        }
-        if(is_post){
-
-        row.append($("<div/>").addClass("col-xs-4").append($("<textarea/>").attr("rows","10").addClass("col-xs-12").val(dout.join("\n"))))
-        }
-
-    $("#data").prepend(row)
+        })
 
 
-  });
+
+
+
+
 
   function parseQuery(qstr) {
     var query = {};
@@ -79,17 +136,47 @@
 </script>
 
 
-<div class="content">
+<div class="content"   ng-controller="SearchController">
+Filter1: <input ng-model='filter' />,
+Filter2: <input ng-model='filter2' />
+Cache: <select ng-model='cache'>
+<option value=''>All</option>
+<option value='!no_logging'>No Cache</option>
+<option value='no_logging'>Only Cache</option>
+</select>
+<button class='btn btn-primary' ng-hide='paused' ng-click='handleTogglePause()' >Pause</button>
+<button class='btn btn-primary' ng-show='paused' ng-click='handleTogglePause()' >Resume</button>
     <div class="row" id='header'>
-        <div>
             <div class="col-xs-1">Method</div>
             <div class="col-xs-1">Device</div>
             <div class="col-xs-6">Request</div>
             <div class="col-xs-4">Post_data</div>
-        </div>
     </div>
-    <div class="row" id='data' >
+    <div class="row" id='data' style='border-bottom:1px solid black;' ng-repeat='r in items | filter:filter  | filter:filter2 | filter:cache | orderBy:r:true | limitTo:10 '>
+        <div class="col-xs-1" ng-bind='r.method'></div>
+        <div class="col-xs-1">
+            <b>uuid:</b><br/>
+            <span style='overflow: hidden;white-space: nowrap;display: block;' ng-bind='r.uuid'></span>
+            <b>token:</b><br/>
+            <span style='overflow: hidden;white-space: nowrap;display: block;' ng-bind='r.token'></span>
+            <b>os:</b><br/>
+            <span style='overflow: hidden;white-space: nowrap;display: block;' ng-bind='r.osversion'></span>
+            <b>version:</b><br/>
+            <span style='overflow: hidden;white-space: nowrap;display: block;' ng-bind='r.version'></span>
+            <b>usertype:</b><br/>
+            <span style='overflow: hidden;white-space: nowrap;display: block;' ng-bind='r.usertype'></span>
 
+        </div>
+        <div class="col-xs-6" >
+            <span class="label label-warning" ng-show='r.no_logging'>Cache</span>
+            <span ng-bind='r.host'></span><br/>
+            <b ng-bind='r.path' style='font-size: 23px;'></b>
+
+        </div>
+        <div class="col-xs-4">
+        <input ng-model='r.full_url' onClick="this.select();" />
+        <textarea ng-bind='r.post' rows='10' cols=30></textarea>
+        </div>
     </div>
 
 </div>

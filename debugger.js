@@ -6,7 +6,7 @@ app.use(bodyParser.urlencoded({     // to support URL-encoded bodies
   extended: true
 }));
 
-
+app.use(require('express').static('public'))
 // parse application/json
 app.use(bodyParser.json())
 server.listen(8080);
@@ -26,7 +26,7 @@ app.post('/test', function (req, res) {
   console.log(data)
   io.local.emit('news',  data)
   previous.push(data)
-  if(previous.length > 10){
+  if(previous.length > 100){
     previous.shift()
   }
   res.send("OK");
